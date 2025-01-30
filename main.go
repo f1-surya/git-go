@@ -3,25 +3,16 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/f1-surya/git-go/initrepo"
+	"github.com/f1-surya/git-go/staging"
 )
 
-func initRepo() {
-	dirs := []string{
-		".git-go",
-		".git-go/refs",
-		".git-go/refs/heads",
-		".git-go/objects",
+func checkRepo() error {
+	if _, err := os.Stat(".git-go"); os.IsNotExist(err) {
+		return fmt.Errorf("no repo initialized in this directory")
 	}
-
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			failed := fmt.Errorf("failed to create %s: %v", dir, err)
-			fmt.Println(failed)
-			return
-		}
-	}
-
-	fmt.Println("Successfully created repo")
+	return nil
 }
 
 func main() {
@@ -32,7 +23,16 @@ func main() {
 
 	switch os.Args[1] {
 	case "init":
-		initRepo()
+		initrepo.InitRepo()
+	case "add":
+		if err := checkRepo(); err == nil {
+			if err := staging.Add(os.Args[2:]); err != nil {
+				fmt.Println(fmt.Errorf("%w", err))
+			}
+
+		} else {
+			fmt.Println("No repo initialized in this directory")
+		}
 	default:
 		fmt.Println("Unknown command")
 	}

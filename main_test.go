@@ -1,16 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/f1-surya/git-go/initrepo"
+	"github.com/f1-surya/git-go/staging"
 )
 
 func TestInit(t *testing.T) {
 	os.RemoveAll(".git-go")
 
-	initRepo()
+	initrepo.InitRepo()
 
 	dirs := []string{
 		".git-go",
@@ -20,7 +24,7 @@ func TestInit(t *testing.T) {
 	}
 	for _, dir := range dirs {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			t.Errorf(dir + " not found")
+			t.Errorf("%s not found", dir)
 		}
 	}
 
@@ -41,4 +45,41 @@ func TestInitCLI(t *testing.T) {
 	}
 
 	os.RemoveAll(".git-go")
+}
+
+func TestAdd(t *testing.T) {
+	os.RemoveAll(".git-go")
+	initrepo.InitRepo()
+
+	err := staging.Add([]string{"main.go", "main_test.go"})
+
+	if err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+
+	entries, err := staging.ReadIndex()
+	if err != nil {
+		t.Fatalf("Read index errored: %v", err)
+	}
+
+	if len(entries) != 2 {
+		t.Fatalf("Entries' missing files")
+	}
+
+	err = staging.Add([]string{"go.mod"})
+	if err != nil {
+		t.Fatalf("Adding to existing index errored, error: %v", err)
+	}
+
+	entries, err = staging.ReadIndex()
+	if err != nil {
+		t.Fatalf("Read index errored: %v", err)
+	}
+
+	if len(entries) != 3 {
+		t.Fatalf("Entries' missing 3rd file")
+	}
+
+	os.RemoveAll(".git-go")
+	fmt.Println("TestAdd Passed")
 }
