@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/f1-surya/git-go/initrepo"
-	"github.com/f1-surya/git-go/staging"
+	"github.com/f1-surya/git-go/commands"
 )
 
 func checkRepo() error {
@@ -23,10 +22,10 @@ func main() {
 
 	switch os.Args[1] {
 	case "init":
-		initrepo.InitRepo()
+		commands.InitRepo()
 	case "add":
 		if err := checkRepo(); err == nil {
-			if err := staging.Add(os.Args[2:]); err != nil {
+			if err := commands.Add(os.Args[2:]); err != nil {
 				fmt.Println(fmt.Errorf("%w", err))
 			}
 

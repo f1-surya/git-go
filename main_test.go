@@ -1,4 +1,4 @@
-package main
+package main_test
 
 import (
 	"fmt"
@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/f1-surya/git-go/initrepo"
-	"github.com/f1-surya/git-go/staging"
+	"github.com/f1-surya/git-go/commands"
+	"github.com/f1-surya/git-go/index"
 )
 
 func TestInit(t *testing.T) {
 	os.RemoveAll(".git-go")
 
-	initrepo.InitRepo()
+	commands.InitRepo()
 
 	dirs := []string{
 		".git-go",
@@ -49,15 +49,15 @@ func TestInitCLI(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	os.RemoveAll(".git-go")
-	initrepo.InitRepo()
+	commands.InitRepo()
 
-	err := staging.Add([]string{"main.go", "main_test.go"})
+	err := commands.Add([]string{"main.go", "main_test.go"})
 
 	if err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
-	entries, err := staging.ReadIndex()
+	entries, err := index.ReadIndex()
 	if err != nil {
 		t.Fatalf("Read index errored: %v", err)
 	}
@@ -66,18 +66,32 @@ func TestAdd(t *testing.T) {
 		t.Fatalf("Entries' missing files")
 	}
 
-	err = staging.Add([]string{"go.mod"})
+	err = commands.Add([]string{"go.mod"})
 	if err != nil {
 		t.Fatalf("Adding to existing index errored, error: %v", err)
 	}
 
-	entries, err = staging.ReadIndex()
+	entries, err = index.ReadIndex()
 	if err != nil {
 		t.Fatalf("Read index errored: %v", err)
 	}
 
 	if len(entries) != 3 {
 		t.Fatalf("Entries' missing 3rd file")
+	}
+
+	err = commands.Add([]string{"go.mod"})
+	if err != nil {
+		t.Fatalf("Adding to existing index the 2nd time errored, error: %v", err)
+	}
+
+	entries, err = index.ReadIndex()
+	if err != nil {
+		t.Fatalf("Read index errored: %v", err)
+	}
+
+	if len(entries) != 3 && len(entries) == 4 {
+		t.Fatalf("duplicate entry is present")
 	}
 
 	os.RemoveAll(".git-go")

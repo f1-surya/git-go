@@ -1,13 +1,9 @@
-package staging
+package index
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"os"
-	"sort"
-
-	"github.com/f1-surya/git-go/utils"
 )
 
 type IndexEntry struct {
@@ -115,39 +111,4 @@ func WriteIndex(entries []IndexEntry) error {
 	}
 
 	return nil
-}
-
-func Add(files []string) error {
-	if len(files) == 0 {
-		return errors.New("no files are provided to stage")
-	}
-
-	var entries []IndexEntry
-	for _, file := range files {
-		if _, err := os.Stat(file); os.IsNotExist(err) {
-			return fmt.Errorf("file does not exist %s", file)
-		}
-
-		hash, size, err := utils.HashFile(file)
-		if err != nil {
-			return err
-		}
-
-		entry := IndexEntry{
-			Mode: 0o100644,
-			Size: size,
-			Hash: hash,
-			Path: file,
-		}
-		entries = append(entries, entry)
-	}
-
-	oldEntries, err := ReadIndex()
-	if err != nil {
-		return err
-	}
-
-	entries = append(entries, oldEntries...)
-	sort.Sort(ByPath(entries))
-	return WriteIndex(entries)
 }
