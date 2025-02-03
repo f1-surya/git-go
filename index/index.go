@@ -2,15 +2,20 @@ package index
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"github.com/f1-surya/git-go/object"
 )
 
 type IndexEntry struct {
-	Mode uint32
-	Size uint32
-	Hash [20]byte
-	Path string
+	Mode    uint32
+	Size    uint32
+	Hash    [20]byte
+	Path    string
+	Content []byte
 }
 
 type ByPath []IndexEntry
@@ -20,7 +25,7 @@ func (a ByPath) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByPath) Less(i, j int) bool { return a[i].Path < a[j].Path }
 
 func ReadIndex() ([]IndexEntry, error) {
-	indexFile, err := os.Open(".git-go/index")
+	indexFile, err := os.Open(filepath.Join(".git-go", "index"))
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +80,9 @@ func ReadIndex() ([]IndexEntry, error) {
 }
 
 func WriteIndex(entries []IndexEntry) error {
-	indexFile, err := os.Create(".git-go/index.temp")
+	tempFileName := filepath.Join(".git-go", "index.temp")
+
+	indexFile, err := os.Create(tempFileName)
 	if err != nil {
 		return err
 	}
@@ -104,9 +111,12 @@ func WriteIndex(entries []IndexEntry) error {
 		if _, err := indexFile.WriteString(entry.Path + "\x00"); err != nil {
 			return fmt.Errorf("error while writing entry path: %w", err)
 		}
+		if err := object.WriteObject(entry.Content, hex.EncodeToString(entry.Hash[:])); err != nil {
+			return fmt.Errorf("error while creating object: %w", err)
+		}
 	}
 
-	if err := os.Rename(".git-go/index.temp", ".git-go/index"); err != nil {
+	if err := os.Rename(tempFileName, filepath.Join(".git-go", "index")); err != nil {
 		return err
 	}
 

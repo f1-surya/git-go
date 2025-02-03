@@ -22,7 +22,7 @@ func main() {
 
 	switch os.Args[1] {
 	case "init":
-		commands.InitRepo()
+		commands.Init()
 	case "add":
 		if err := checkRepo(); err == nil {
 			if err := commands.Add(os.Args[2:]); err != nil {

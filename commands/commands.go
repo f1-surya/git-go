@@ -1,22 +1,21 @@
 package commands
 
 import (
+	"crypto/sha1"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/f1-surya/git-go/index"
-	"github.com/f1-surya/git-go/utils"
 )
 
-func InitRepo() {
+func Init() {
 	dirs := []string{
-		".git-go",
-		".git-go/refs",
-		".git-go/refs/heads",
-		".git-go/objects",
+		filepath.Join(".git-go", "refs", "heads"),
+		filepath.Join(".git-go", "objects"),
 	}
 
 	for _, dir := range dirs {
@@ -27,11 +26,12 @@ func InitRepo() {
 		}
 	}
 
-	indexFile, err := os.Create(".git-go/index")
+	indexFile, err := os.Create(filepath.Join(".git-go", "index"))
 	if err != nil {
 		fmt.Printf("Error while creating the index file error: %v", err)
 		return
 	}
+	defer indexFile.Close()
 
 	header := []byte("DIRC")
 	if _, err := indexFile.Write(header); err != nil {
@@ -68,16 +68,17 @@ func Add(files []string) error {
 			return fmt.Errorf("file does not exist %s", file)
 		}
 
-		hash, size, err := utils.HashFile(file)
+		fileContent, err := os.ReadFile(file)
 		if err != nil {
 			return err
 		}
 
 		uniqueEntries[file] = index.IndexEntry{
-			Mode: 0o100644,
-			Size: size,
-			Hash: hash,
-			Path: file,
+			Mode:    0o100644,
+			Size:    uint32(len(fileContent)),
+			Hash:    sha1.Sum(fileContent),
+			Path:    file,
+			Content: fileContent,
 		}
 	}
 

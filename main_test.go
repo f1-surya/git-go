@@ -1,9 +1,11 @@
 package main_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,13 +16,13 @@ import (
 func TestInit(t *testing.T) {
 	os.RemoveAll(".git-go")
 
-	commands.InitRepo()
+	commands.Init()
 
 	dirs := []string{
 		".git-go",
-		".git-go/refs",
-		".git-go/refs/heads",
-		".git-go/objects",
+		filepath.Join(".git-go", "refs"),
+		filepath.Join(".git-go", "refs", "heads"),
+		filepath.Join(".git-go", "objects"),
 	}
 	for _, dir := range dirs {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -49,7 +51,7 @@ func TestInitCLI(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	os.RemoveAll(".git-go")
-	commands.InitRepo()
+	commands.Init()
 
 	err := commands.Add([]string{"main.go", "main_test.go"})
 
@@ -88,6 +90,10 @@ func TestAdd(t *testing.T) {
 	entries, err = index.ReadIndex()
 	if err != nil {
 		t.Fatalf("Read index errored: %v", err)
+	}
+	path := filepath.Join(".git-go", "objects", hex.EncodeToString(entries[0].Hash[:])[38:], hex.EncodeToString(entries[0].Hash[:]))
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Fatalf("Object doesn't exist")
 	}
 
 	if len(entries) != 3 && len(entries) == 4 {
