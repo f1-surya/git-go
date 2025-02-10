@@ -77,7 +77,7 @@ func Add(files []string) error {
 			Mode:    0o100644,
 			Size:    uint32(len(fileContent)),
 			Hash:    sha1.Sum(fileContent),
-			Path:    file,
+			Path:    filepath.Clean(file),
 			Content: fileContent,
 		}
 	}

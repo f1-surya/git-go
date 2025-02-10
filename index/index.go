@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/f1-surya/git-go/object"
 )
@@ -76,6 +77,7 @@ func ReadIndex() ([]IndexEntry, error) {
 		entries = append(entries, entry)
 	}
 
+	sort.Sort(ByPath(entries))
 	return entries, nil
 }
 

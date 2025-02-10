@@ -11,6 +11,7 @@ import (
 
 	"github.com/f1-surya/git-go/commands"
 	"github.com/f1-surya/git-go/index"
+	"github.com/f1-surya/git-go/tree"
 )
 
 func TestInit(t *testing.T) {
@@ -101,5 +102,44 @@ func TestAdd(t *testing.T) {
 	}
 
 	os.RemoveAll(".git-go")
-	fmt.Println("TestAdd Passed")
+}
+
+func TestTree(t *testing.T) {
+	t.Cleanup(func() {
+		os.RemoveAll("git-go")
+		os.RemoveAll("commands/test")
+	})
+
+	commands.Init()
+	err := os.Mkdir("commands/test", 0755)
+	if err != nil {
+		t.Fatalf("Dir creation errored: %v", err)
+	}
+
+	file, err := os.Create("commands/test/test.txt")
+	if err != nil {
+		t.Fatalf("File creation errored: %v", err)
+	}
+	defer file.Close()
+
+	err = commands.Add([]string{"main.go", "commands/commands.go", "main_test.go", "commands/test/test.txt"})
+	if err != nil {
+		t.Fatalf("Add errored: %v", err)
+	}
+
+	trees, err := tree.CreateRoot()
+	if err == nil {
+		rootLen := len(trees["."].Children)
+		if rootLen > 3 {
+			t.Fatalf("Root has more than 3 children: %d", rootLen)
+		} else if rootLen < 3 {
+			t.Fatalf("Root has less children: %d", rootLen)
+		}
+		if len(trees["commands"].Children) != 2 {
+			t.Fatalf("Commands doesn't have the right amount of children")
+		}
+	} else {
+		fmt.Println(err)
+	}
+
 }
