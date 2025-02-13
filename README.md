@@ -9,7 +9,7 @@ I'm trying to implement git with `golang` to learn go and for fun.
 - [x] Init
 - [x] Add
 - [x] Trees
-- [ ] Commit
+- [x] Commit
 - [ ] Log to view all previous commits
 - [ ] Status
 - [ ] Revert
