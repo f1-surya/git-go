@@ -54,3 +54,8 @@ func ReadObject(name string) ([]byte, error) {
 	decompressedContent, err := io.ReadAll(reader)
 	return decompressedContent, err
 }
+
+func ObjectExist(hash string) bool {
+	_, err := os.Stat(filepath.Join(".git-go", "objects", hash[38:], hash))
+	return err == nil
+}

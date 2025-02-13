@@ -3,11 +3,13 @@ package tree
 import (
 	"crypto/sha1"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/f1-surya/git-go/index"
+	"github.com/f1-surya/git-go/object"
 )
 
 type TreeEntry struct {
@@ -97,4 +99,27 @@ func CreateRoot() (map[string]*Tree, error) {
 	}
 
 	return trees, nil
+}
+
+func WriteTrees() (string, error) {
+	trees, err := CreateRoot()
+	if err != nil {
+		return "", err
+	}
+
+	rootHash := trees["."].Hash()
+	for _, tree := range trees {
+		treeHash := tree.Hash()
+		treeHashString := hex.EncodeToString(treeHash[:])
+		exists := object.ObjectExist(treeHashString)
+		if exists {
+			continue
+		}
+		err = object.WriteObject(tree.GetBlob(), treeHashString)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return hex.EncodeToString(rootHash[:]), nil
 }

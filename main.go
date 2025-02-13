@@ -32,6 +32,14 @@ func main() {
 		} else {
 			fmt.Println("No repo initialized in this directory")
 		}
+	case "commit":
+		if err := checkRepo(); err == nil {
+			if err := commands.Commit(os.Args[2:]); err != nil {
+				fmt.Println(fmt.Errorf("%w", err))
+			}
+		} else {
+			fmt.Println("No repo initialized in this directory")
+		}
 	default:
 		fmt.Println("Unknown command")
 	}
