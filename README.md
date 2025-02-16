@@ -11,6 +11,7 @@ I'm trying to implement git with `golang` to learn go and for fun.
 - [x] Trees
 - [x] Commit
 - [ ] Log to view all previous commits
+- [ ] Handle file deletions
 - [ ] Status
 - [ ] Revert
 - [ ] Maybe diff
