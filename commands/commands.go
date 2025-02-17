@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/f1-surya/git-go/index"
 	"github.com/f1-surya/git-go/object"
@@ -120,6 +122,13 @@ func Commit(args []string) error {
 		commit = append(commit, []byte(fmt.Sprintf("parent %s\n", string(head)))...)
 	}
 	commit = append(commit, []byte(fmt.Sprintf("tree %s \n\n", root))...)
+
+	user, err := user.Current()
+	if err != nil {
+		return err
+	}
+
+	commit = append(commit, []byte(fmt.Sprintf("author %v %d\n", user.Username, time.Now().Unix()))...)
 	commit = append(commit, []byte(args[1])...)
 	commit = append([]byte(fmt.Sprintf("commit %d", len(commit))), commit...)
 
