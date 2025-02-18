@@ -7,14 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
 	"sort"
-	"time"
 
+	"github.com/f1-surya/git-go/commit"
 	"github.com/f1-surya/git-go/index"
 	"github.com/f1-surya/git-go/object"
-	"github.com/f1-surya/git-go/tree"
 )
 
 func Init() {
@@ -107,31 +105,8 @@ func Commit(args []string) error {
 	if len(args) < 2 {
 		return errors.New("missing commit message")
 	}
-	root, err := tree.WriteTrees()
-	if err != nil {
-		return err
-	}
 
-	var commit []byte
-	headPath := filepath.Join(".git-go", "refs", "heads", "main")
-	if _, err := os.Stat(headPath); err == nil {
-		head, err := os.ReadFile(headPath)
-		if err != nil {
-			return err
-		}
-		commit = append(commit, []byte(fmt.Sprintf("parent %s\n", string(head)))...)
-	}
-	commit = append(commit, []byte(fmt.Sprintf("tree %s \n\n", root))...)
-
-	user, err := user.Current()
-	if err != nil {
-		return err
-	}
-
-	commit = append(commit, []byte(fmt.Sprintf("author %v %d\n", user.Username, time.Now().Unix()))...)
-	commit = append(commit, []byte(args[1])...)
-	commit = append([]byte(fmt.Sprintf("commit %d", len(commit))), commit...)
-
+	commit, err := commit.CreateCommit(args)
 	commitHash := sha1.Sum(commit)
 	commitHashString := hex.EncodeToString(commitHash[:])
 	err = object.WriteObject(commit, commitHashString)
