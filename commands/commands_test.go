@@ -57,3 +57,44 @@ func TestCommit(t *testing.T) {
 		t.Fatalf("Objects count is incorrect: %d", objectCount)
 	}
 }
+
+func TestLog(t *testing.T) {
+	t.Cleanup(func() {
+		os.RemoveAll(".git-go")
+		os.RemoveAll("test")
+	})
+
+	commands.Init()
+	err := commands.Add([]string{"commands.go"})
+	if err != nil {
+		t.Fatalf("Add errored: %v", err)
+	}
+	err = commands.Commit([]string{"-m", "Init"})
+	if err != nil {
+		t.Fatalf("Commit errored: %v", err)
+	}
+
+	err = os.Mkdir("test", 0755)
+	if err != nil {
+		t.Fatalf("Dir creation errored: %v", err)
+	}
+	file, err := os.Create("test/test.txt")
+	if err != nil {
+		t.Fatalf("File creation errored: %v", err)
+	}
+	defer file.Close()
+	err = commands.Add([]string{"test/test.txt"})
+	if err != nil {
+		t.Fatalf("Add 2 errored: %v", err)
+	}
+
+	err = commands.Commit([]string{"-m", "Second"})
+	if err != nil {
+		t.Fatalf("Commit 2 errored: %v", err)
+	}
+
+	err = commands.Log()
+	if err != nil {
+		t.Fatalf("Log errored: %v", err)
+	}
+}

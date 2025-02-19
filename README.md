@@ -10,8 +10,9 @@ I'm trying to implement git with `golang` to learn go and for fun.
 - [x] Add
 - [x] Trees
 - [x] Commit
-- [ ] Log to view all previous commits
+- [x] Log to view all previous commits
 - [ ] Handle file deletions
 - [ ] Status
+- [ ] Goroutine
 - [ ] Revert
 - [ ] Maybe diff

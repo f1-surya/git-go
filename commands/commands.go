@@ -107,6 +107,9 @@ func Commit(args []string) error {
 	}
 
 	commit, err := commit.CreateCommit(args)
+	if err != nil {
+		return err
+	}
 	commitHash := sha1.Sum(commit)
 	commitHashString := hex.EncodeToString(commitHash[:])
 	err = object.WriteObject(commit, commitHashString)
@@ -128,5 +131,37 @@ func Commit(args []string) error {
 		return err
 	}
 
+	return nil
+}
+
+func Log() error {
+	head := ""
+	var commits []commit.Commit
+	if headBytes, err := os.ReadFile(filepath.Join(".git-go", "refs", "heads", "main")); err != nil {
+		return err
+	} else {
+		head = string(headBytes)
+	}
+
+	if head == "" {
+		fmt.Println("There are no commits yet")
+		return nil
+	}
+
+	for head != "" {
+		currCommit, err := commit.ParseCommit(head)
+		if err != nil {
+			return err
+		}
+		commits = append([]commit.Commit{currCommit}, commits...)
+		head = currCommit.Parent
+	}
+
+	for _, currCommit := range commits {
+		fmt.Printf("\033[33mcommit %s\n\033[0m", currCommit.Hash)
+		fmt.Printf("Author: %s\n", currCommit.Author)
+		fmt.Printf("Date: %s\n\n", currCommit.CreatedAt.Format("Mon Jan 2 15:04:05 2006 MST"))
+		fmt.Printf("   %s\n\n", currCommit.Message)
+	}
 	return nil
 }

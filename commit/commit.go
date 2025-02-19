@@ -2,11 +2,11 @@ package commit
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/f1-surya/git-go/object"
@@ -65,9 +65,13 @@ func ParseCommit(commitHash string) (Commit, error) {
 	parent := bytes.Split(commitParts[1], spaceByte)[1]
 	tree := bytes.Split(commitParts[2], spaceByte)[1]
 	metadata := bytes.Split(commitParts[3], spaceByte)
+	timestamp, err := strconv.ParseInt(string(metadata[2]), 10, 64)
+	if err != nil {
+		return commit, err
+	}
 
 	commit.Author = string(metadata[1])
-	commit.CreatedAt = time.Unix(int64(binary.BigEndian.Uint64(metadata[2])), 0)
+	commit.CreatedAt = time.Unix(timestamp, 0)
 	commit.Tree = string(tree)
 	commit.Message = string(commitParts[4])
 	commit.Parent = string(parent)
