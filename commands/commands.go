@@ -57,6 +57,7 @@ func Init() {
 	fmt.Println("Successfully created repo")
 }
 
+// Adds the entered files to index and creates objects for them.
 func Add(files []string) error {
 	if len(files) == 0 {
 		return errors.New("no files are provided to stage")
@@ -75,6 +76,11 @@ func Add(files []string) error {
 
 	for _, file := range files {
 		if _, err := os.Stat(file); os.IsNotExist(err) {
+			_, ok := uniqueEntries[file]
+			if ok {
+				delete(uniqueEntries, file)
+				continue
+			}
 			return fmt.Errorf("file does not exist %s", file)
 		}
 

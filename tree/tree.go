@@ -44,6 +44,7 @@ func (t *Tree) Hash() [20]byte {
 	return sha1.Sum(t.GetBlob())
 }
 
+// Creates the necessary trees for all the tracked files.
 func CreateRoot() (map[string]*Tree, error) {
 	entries, err := index.ReadIndex()
 	if err != nil {
@@ -101,6 +102,7 @@ func CreateRoot() (map[string]*Tree, error) {
 	return trees, nil
 }
 
+// Creates the trees for all the tracked files and writes them to the ObjectDB
 func WriteTrees() (string, error) {
 	trees, err := CreateRoot()
 	if err != nil {

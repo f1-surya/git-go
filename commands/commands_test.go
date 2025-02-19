@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/f1-surya/git-go/commands"
+	"github.com/f1-surya/git-go/index"
 )
 
 func TestCommitWithoutMessage(t *testing.T) {
@@ -96,5 +97,46 @@ func TestLog(t *testing.T) {
 	err = commands.Log()
 	if err != nil {
 		t.Fatalf("Log errored: %v", err)
+	}
+}
+
+func TestDeletes(t *testing.T) {
+	t.Cleanup(func() {
+		os.RemoveAll(".git-go")
+		os.RemoveAll("test")
+	})
+
+	commands.Init()
+	err := os.Mkdir("test", 0755)
+	if err != nil {
+		t.Fatalf("Dir creation errored: %v", err)
+	}
+	file, err := os.Create("test/test.txt")
+	if err != nil {
+		t.Fatalf("File creation errored: %v", err)
+	}
+	defer file.Close()
+	err = commands.Add([]string{"commands.go", "test/test.txt"})
+	if err != nil {
+		t.Fatalf("Add 2 errored: %v", err)
+	}
+
+	err = os.RemoveAll("test/test.txt")
+	if err != nil {
+		t.Fatalf("Deleting test errored: %v", err)
+	}
+
+	err = commands.Add([]string{"test/test.txt"})
+	if err != nil {
+		t.Fatalf("Add 2 errored: %v", err)
+	}
+
+	entries, err := index.ReadIndex()
+	if err != nil {
+		t.Fatalf("Read index errored: %v", err)
+	}
+
+	if len(entries) != 1 {
+		t.Fatalf("Entries length isn't right: %d", len(entries))
 	}
 }
