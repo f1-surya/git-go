@@ -1,10 +1,12 @@
 package tree
 
 import (
+	"bytes"
 	"crypto/sha1"
-	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -16,7 +18,7 @@ type TreeEntry struct {
 	Mode uint32
 	Type string
 	Name string
-	Hash [20]byte
+	Hash []byte
 }
 
 type Tree struct {
@@ -24,20 +26,19 @@ type Tree struct {
 }
 
 func (t *Tree) GetBlob() []byte {
-	var data []byte
+	var buffer bytes.Buffer
 
 	for _, entry := range t.Children {
-		modeBytes := make([]byte, 4)
-		binary.BigEndian.PutUint32(modeBytes, entry.Mode)
-		data = append(data, modeBytes...)
-		data = append(data, []byte(" "+entry.Name+"\000")...)
-		data = append(data, entry.Hash[:]...)
+		fmt.Fprintf(&buffer, "%o %s\x00", entry.Mode, entry.Name)
+		buffer.Write(entry.Hash)
 	}
 
-	header := fmt.Sprintf("tree %d\000", len(data))
-	data = append([]byte(header), data...)
+	content := buffer.Bytes()
+	var result bytes.Buffer
+	fmt.Fprintf(&result, "tree %d\x00", len(content))
+	result.Write(content)
 
-	return data
+	return result.Bytes()
 }
 
 func (t *Tree) Hash() [20]byte {
@@ -59,7 +60,7 @@ func CreateRoot() (map[string]*Tree, error) {
 		parts := strings.Split(entry.Path, string(filepath.Separator))
 		currentPath := "."
 
-		for i := 0; i < len(parts)-1; i++ {
+		for i := range len(parts) - 1 {
 			currentPath = parts[i]
 			subTree, ok := trees[currentPath]
 			if !ok {
@@ -68,8 +69,8 @@ func CreateRoot() (map[string]*Tree, error) {
 				currentTree.Children = append(currentTree.Children, TreeEntry{
 					Mode: 0o40000,
 					Type: "tree",
-					Name: currentPath,
-					Hash: [20]byte{},
+					Name: parts[i],
+					Hash: []byte{},
 				})
 			}
 			currentTree = subTree
@@ -80,7 +81,7 @@ func CreateRoot() (map[string]*Tree, error) {
 			Mode: entry.Mode,
 			Type: "blob",
 			Name: fileName,
-			Hash: entry.Hash,
+			Hash: entry.Hash[:],
 		})
 	}
 
@@ -91,8 +92,8 @@ func CreateRoot() (map[string]*Tree, error) {
 			parentTree := trees[parentPath]
 
 			for i, entry := range parentTree.Children {
-				if entry.Name == filepath.Base(parentPath) {
-					parentTree.Children[i].Hash = hash
+				if entry.Name == filepath.Base(path) {
+					parentTree.Children[i].Hash = hash[:]
 					break
 				}
 			}
@@ -124,4 +125,86 @@ func WriteTrees() (string, error) {
 	}
 
 	return hex.EncodeToString(rootHash[:]), nil
+}
+
+// Parses the object of the given hash and returns all the children of the tree.
+func ParseTreeObject(hash string) (Tree, error) {
+	var root Tree
+
+	treeObject, err := object.ReadObject(hash)
+	if err != nil {
+		return root, err
+	}
+	headerEnd := bytes.IndexByte(treeObject, '\000')
+	if headerEnd == -1 {
+		return root, errors.New("header end not found")
+	}
+	buff := bytes.NewBuffer(treeObject[headerEnd+1:])
+
+	for buff.Len() > 0 {
+		mode, err := buff.ReadBytes(' ')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return root, err
+		}
+		modeStr := string(mode[:len(mode)-1])
+		var modeInt uint32
+		fmt.Sscanf(modeStr, "%o", &modeInt)
+
+		pathEnd, err := buff.ReadBytes('\000')
+		if err != nil {
+			return root, fmt.Errorf("missing null terminator after file path: %w", err)
+		}
+		path := string(pathEnd[:len(pathEnd)-1])
+
+		hash := make([]byte, 20)
+		n, err := buff.Read(hash)
+		if err != nil || n != 20 {
+			return root, fmt.Errorf("incomplete hash: %w", err)
+		}
+
+		entryType := "blob"
+		if modeInt == object.ModeDirectory {
+			entryType = "tree"
+		}
+
+		root.Children = append(root.Children, TreeEntry{
+			Mode: modeInt,
+			Name: path,
+			Type: entryType,
+			Hash: hash,
+		})
+	}
+
+	return root, nil
+}
+
+// Gets the tree for the given hash and all of its subtrees recursively
+func GetTreesRecursive(tree string) (map[string]Tree, error) {
+	trees := make(map[string]Tree)
+	var entries []TreeEntry
+
+	root, err := ParseTreeObject(tree)
+	if err != nil {
+		return trees, err
+	}
+	entries = append(entries, root.Children...)
+
+	for i := range entries {
+		currEntry := entries[i]
+		if currEntry.Type == "tree" {
+			tree, err := ParseTreeObject(hex.EncodeToString(currEntry.Hash))
+			if err != nil {
+				return trees, err
+			}
+			trees[currEntry.Name] = tree
+			entries = append(entries, tree.Children...)
+		}
+	}
+
+	trees["."] = root
+
+	return trees, nil
 }

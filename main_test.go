@@ -106,7 +106,7 @@ func TestAdd(t *testing.T) {
 
 func TestTree(t *testing.T) {
 	t.Cleanup(func() {
-		os.RemoveAll("git-go")
+		os.RemoveAll(".git-go")
 		os.RemoveAll("commands/test")
 	})
 

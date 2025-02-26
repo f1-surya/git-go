@@ -8,6 +8,11 @@ import (
 	"path/filepath"
 )
 
+const (
+	ModeDirectory uint32 = 0o40000 // Directory
+	ModeRegular   uint32 = 0100644 // Regular file
+)
+
 func WriteObject(fileContent []byte, name string) error {
 	var buffer bytes.Buffer
 	w := zlib.NewWriter(&buffer)

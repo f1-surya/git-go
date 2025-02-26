@@ -35,9 +35,9 @@ func CreateCommit(args []string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		commit = append(commit, []byte(fmt.Sprintf("parent %s\n", string(head)))...)
+		commit = append(commit, fmt.Appendf(nil, "parent %s\n", string(head))...)
 	}
-	commit = append(commit, []byte(fmt.Sprintf("tree %s\n", root))...)
+	commit = append(commit, fmt.Appendf(nil, "tree %s\n", root)...)
 
 	user, err := user.Current()
 	if err != nil {
@@ -45,9 +45,9 @@ func CreateCommit(args []string) ([]byte, error) {
 	}
 
 	now := time.Now()
-	commit = append(commit, []byte(fmt.Sprintf("author %v %d\n", user.Username, now.Unix()))...)
+	commit = append(commit, fmt.Appendf(nil, "author %v %d\n", user.Username, now.Unix())...)
 	commit = append(commit, []byte(args[1])...)
-	commit = append([]byte(fmt.Sprintf("commit %d\n", len(commit))), commit...)
+	commit = append(fmt.Appendf(nil, "commit %d\n", len(commit)), commit...)
 
 	return commit, nil
 }
@@ -78,4 +78,19 @@ func ParseCommit(commitHash string) (Commit, error) {
 	commit.Hash = commitHash
 
 	return commit, nil
+}
+
+func GetLatest() (Commit, error) {
+	var result Commit
+
+	head, err := os.ReadFile(filepath.Join(".git-go", "refs", "heads", "main"))
+	if err != nil {
+		return result, err
+	}
+	result, err = ParseCommit(string(head))
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
 }
