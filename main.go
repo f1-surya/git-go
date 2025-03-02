@@ -40,6 +40,13 @@ func main() {
 		} else {
 			fmt.Println("No repo initialized in this directory")
 		}
+	case "status":
+		if err := checkRepo(); err == nil {
+			err := commands.Status()
+			fmt.Println(fmt.Errorf("%w", err))
+		} else {
+			fmt.Println("No repo initialized in this directory")
+		}
 	default:
 		fmt.Println("Unknown command")
 	}

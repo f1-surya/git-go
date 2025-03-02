@@ -140,3 +140,32 @@ func TestDeletes(t *testing.T) {
 		t.Fatalf("Entries length isn't right: %d", len(entries))
 	}
 }
+
+func TestStatus(t *testing.T) {
+	t.Cleanup(func() {
+		os.RemoveAll(".git-go")
+		os.RemoveAll("test")
+	})
+	commands.Init()
+
+	err := os.Mkdir("test", 0755)
+	if err != nil {
+		t.Fatalf("Dir creation errored: %v", err)
+	}
+
+	file, err := os.Create("test/test.txt")
+	if err != nil {
+		t.Fatalf("File creation errored: %v", err)
+	}
+	defer file.Close()
+
+	err = commands.Add([]string{"commands.go", "test/test.txt"})
+	if err != nil {
+		t.Fatalf("Add errored: %v", err)
+	}
+
+	err = commands.Status()
+	if err != nil {
+		t.Fatalf("status errored: %v", err)
+	}
+}

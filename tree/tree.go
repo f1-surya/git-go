@@ -208,3 +208,57 @@ func GetTreesRecursive(tree string) (map[string]Tree, error) {
 
 	return trees, nil
 }
+
+func GetFileHash(trees map[string]Tree, file string) string {
+	currentTree, exists := trees["."]
+	if !exists {
+		return ""
+	}
+
+	parts := strings.Split(file, string(filepath.Separator))
+
+	for _, part := range parts {
+		for _, child := range currentTree.Children {
+			if child.Type == "blob" && child.Name == part {
+				return hex.EncodeToString(child.Hash)
+			} else if child.Name == part {
+				nextTree, ok := trees[child.Name]
+				if ok {
+					currentTree = nextTree
+					break
+				} else {
+					return ""
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// Walks through the map and returns a map of all the files in the
+// tree with the file's path as key and its hash as value
+func GetAllFiles(trees map[string]Tree) map[string]string {
+	files := make(map[string]string)
+
+	var walkTrees func(string, Tree)
+	walkTrees = func(prefix string, tree Tree) {
+		for _, child := range tree.Children {
+			path := filepath.Join(prefix, child.Name)
+			if child.Type == "blob" {
+				files[path] = hex.EncodeToString(child.Hash)
+			} else if child.Type == "tree" {
+				subTree, ok := trees[child.Name]
+				if ok {
+					walkTrees(path, subTree)
+				}
+			}
+		}
+	}
+
+	root, ok := trees["."]
+	if ok {
+		walkTrees("", root)
+	}
+
+	return files
+}

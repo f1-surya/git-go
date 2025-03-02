@@ -6,13 +6,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
+
+	"maps"
 
 	"github.com/f1-surya/git-go/commit"
 	"github.com/f1-surya/git-go/index"
 	"github.com/f1-surya/git-go/object"
+	"github.com/f1-surya/git-go/tree"
 )
 
 func Init() {
@@ -169,5 +174,112 @@ func Log() error {
 		fmt.Printf("Date: %s\n\n", currCommit.CreatedAt.Format("Mon Jan 2 15:04:05 2006 MST"))
 		fmt.Printf("   %s\n\n", currCommit.Message)
 	}
+	return nil
+}
+
+func Status() error {
+	allFiles := make(map[string]string)
+	var filesInCommit map[string]string
+	indexEntries, err := index.ReadIndex()
+	if err != nil {
+		return err
+	}
+	entries := make(map[string]index.IndexEntry)
+
+	for _, entry := range indexEntries {
+		entries[entry.Path] = entry
+		allFiles[entry.Path] = hex.EncodeToString(entry.Hash[:])
+	}
+
+	latestCommit, err := commit.GetLatest()
+	if err != nil {
+		if err.Error() != "there are no commits" {
+			return err
+		}
+	}
+	if latestCommit != nil {
+		trees, err := tree.GetTreesRecursive(latestCommit.Tree)
+		if err != nil {
+			return fmt.Errorf("error while parsing root: %v", err)
+		}
+		filesInCommit = tree.GetAllFiles(trees)
+		maps.Copy(allFiles, filesInCommit)
+	}
+
+	walkedFiles := make(map[string]string)
+
+	err = filepath.Walk(".", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			if strings.Contains(path, ".git") {
+				return nil
+			}
+			fileContent, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			fileHash := sha1.Sum(fileContent)
+			hashString := hex.EncodeToString(fileHash[:])
+			walkedFiles[path] = hashString
+			allFiles[path] = hashString
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	var staged []string
+	var notStaged []string
+
+	for file, _ := range allFiles {
+		fsHash, inFs := walkedFiles[file]
+		commitHash, inCommit := filesInCommit[file]
+		indexEntry, inIndex := entries[file]
+		indexHash := hex.EncodeToString(indexEntry.Hash[:])
+
+		if fsHash == indexHash && indexHash == commitHash {
+			continue
+		}
+		if !inFs && inIndex && inCommit {
+			notStaged = append(notStaged, "deleted: "+file)
+		} else if !inFs && !inIndex && inCommit {
+			staged = append(staged, "deleted: "+file)
+		} else if fsHash == indexHash && !inCommit {
+			staged = append(staged, "created: "+file)
+		} else if fsHash == indexHash && indexHash != commitHash {
+			staged = append(staged, "modified: "+file)
+		} else if fsHash != indexHash && !inIndex {
+			notStaged = append(notStaged, "created: "+file)
+		} else if fsHash != indexHash && inIndex {
+			notStaged = append(notStaged, "modified: "+file)
+		}
+	}
+
+	if len(staged) == 0 && len(notStaged) == 0 {
+		fmt.Println("No changes detected")
+		return nil
+	}
+
+	if len(staged) > 0 {
+		fmt.Println("Changes staged for commit:\033[32m")
+		fmt.Println("")
+		for _, path := range staged {
+			fmt.Println("    " + path)
+		}
+		fmt.Println("\033[0m")
+	}
+
+	if len(notStaged) > 0 {
+		fmt.Println("Changes not staged for commit:\033[31m")
+		fmt.Println("")
+		for _, path := range notStaged {
+			fmt.Println("    " + path)
+		}
+		fmt.Println("\033[0m")
+	}
+
 	return nil
 }

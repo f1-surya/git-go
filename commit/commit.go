@@ -80,17 +80,20 @@ func ParseCommit(commitHash string) (Commit, error) {
 	return commit, nil
 }
 
-func GetLatest() (Commit, error) {
+func GetLatest() (*Commit, error) {
 	var result Commit
 
 	head, err := os.ReadFile(filepath.Join(".git-go", "refs", "heads", "main"))
 	if err != nil {
-		return result, err
+		return nil, err
+	}
+	if len(head) == 0 {
+		return nil, nil
 	}
 	result, err = ParseCommit(string(head))
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
-	return result, nil
+	return &result, nil
 }
