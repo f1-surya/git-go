@@ -12,7 +12,7 @@ I'm trying to implement git with `golang` to learn go and for fun.
 - [x] Commit
 - [x] Log to view all previous commits
 - [x] Handle file deletions
-- [ ] Status
+- [x] Status
 - [ ] Goroutine
 - [ ] Revert
 - [ ] Maybe diff
