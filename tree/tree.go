@@ -9,6 +9,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/f1-surya/git-go/index"
 	"github.com/f1-surya/git-go/object"
@@ -185,6 +186,9 @@ func ParseTreeObject(hash string) (Tree, error) {
 func GetTreesRecursive(tree string) (map[string]Tree, error) {
 	trees := make(map[string]Tree)
 	var entries []TreeEntry
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	errs := make(chan error)
 
 	root, err := ParseTreeObject(tree)
 	if err != nil {
@@ -195,15 +199,29 @@ func GetTreesRecursive(tree string) (map[string]Tree, error) {
 	for i := range entries {
 		currEntry := entries[i]
 		if currEntry.Type == "tree" {
-			tree, err := ParseTreeObject(hex.EncodeToString(currEntry.Hash))
-			if err != nil {
-				return trees, err
-			}
-			trees[currEntry.Name] = tree
-			entries = append(entries, tree.Children...)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				tree, err := ParseTreeObject(hex.EncodeToString(currEntry.Hash))
+				if err != nil {
+					errs <- err
+				}
+				mu.Lock()
+				trees[currEntry.Name] = tree
+				entries = append(entries, tree.Children...)
+				mu.Unlock()
+			}()
 		}
 	}
 
+	go func() {
+		wg.Wait()
+		close(errs)
+	}()
+
+	for err := range errs {
+		return trees, err
+	}
 	trees["."] = root
 
 	return trees, nil
@@ -244,9 +262,10 @@ func GetAllFiles(trees map[string]Tree) map[string]string {
 	walkTrees = func(prefix string, tree Tree) {
 		for _, child := range tree.Children {
 			path := filepath.Join(prefix, child.Name)
-			if child.Type == "blob" {
+			switch child.Type {
+			case "blob":
 				files[path] = hex.EncodeToString(child.Hash)
-			} else if child.Type == "tree" {
+			case "tree":
 				subTree, ok := trees[child.Name]
 				if ok {
 					walkTrees(path, subTree)

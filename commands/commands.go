@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"maps"
+	"sync"
 
 	"github.com/f1-surya/git-go/commit"
 	"github.com/f1-surya/git-go/index"
@@ -193,9 +193,7 @@ func Status() error {
 
 	latestCommit, err := commit.GetLatest()
 	if err != nil {
-		if err.Error() != "there are no commits" {
-			return err
-		}
+		return err
 	}
 	if latestCommit != nil {
 		trees, err := tree.GetTreesRecursive(latestCommit.Tree)
@@ -208,6 +206,8 @@ func Status() error {
 
 	walkedFiles := make(map[string]string)
 
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	err = filepath.Walk(".", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -216,17 +216,26 @@ func Status() error {
 			if strings.Contains(path, ".git") {
 				return nil
 			}
-			fileContent, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			fileHash := sha1.Sum(fileContent)
-			hashString := hex.EncodeToString(fileHash[:])
-			walkedFiles[path] = hashString
-			allFiles[path] = hashString
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				fileContent, err := os.ReadFile(path)
+				if err != nil {
+					fmt.Println("err")
+					fmt.Printf("reading %s errored, e: %v", path, err)
+					return
+				}
+				fileHash := sha1.Sum(fileContent)
+				hashString := hex.EncodeToString(fileHash[:])
+				mu.Lock()
+				walkedFiles[path] = hashString
+				allFiles[path] = hashString
+				mu.Unlock()
+			}()
 		}
 		return nil
 	})
+	wg.Wait()
 	if err != nil {
 		return err
 	}
@@ -234,7 +243,7 @@ func Status() error {
 	var staged []string
 	var notStaged []string
 
-	for file, _ := range allFiles {
+	for file := range allFiles {
 		fsHash, inFs := walkedFiles[file]
 		commitHash, inCommit := filesInCommit[file]
 		indexEntry, inIndex := entries[file]
@@ -257,6 +266,9 @@ func Status() error {
 			notStaged = append(notStaged, "modified: "+file)
 		}
 	}
+
+	sort.Strings(staged)
+	sort.Strings(notStaged)
 
 	if len(staged) == 0 && len(notStaged) == 0 {
 		fmt.Println("No changes detected")

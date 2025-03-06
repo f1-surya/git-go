@@ -146,6 +146,7 @@ func TestStatus(t *testing.T) {
 		os.RemoveAll(".git-go")
 		os.RemoveAll("test")
 	})
+	os.Chdir("..")
 	commands.Init()
 
 	err := os.Mkdir("test", 0755)
@@ -159,7 +160,7 @@ func TestStatus(t *testing.T) {
 	}
 	defer file.Close()
 
-	err = commands.Add([]string{"commands.go", "test/test.txt"})
+	err = commands.Add([]string{"commands/commands.go", "test/test.txt"})
 	if err != nil {
 		t.Fatalf("Add errored: %v", err)
 	}
