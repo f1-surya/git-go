@@ -16,7 +16,6 @@ import (
 
 	"github.com/f1-surya/git-go/commit"
 	"github.com/f1-surya/git-go/index"
-	"github.com/f1-surya/git-go/object"
 	"github.com/f1-surya/git-go/tree"
 )
 
@@ -117,31 +116,15 @@ func Commit(args []string) error {
 		return errors.New("missing commit message")
 	}
 
-	commit, err := commit.CreateCommit(args)
-	if err != nil {
-		return err
-	}
-	commitHash := sha1.Sum(commit)
-	commitHashString := hex.EncodeToString(commitHash[:])
-	err = object.WriteObject(commit, commitHashString)
+	newCommit, err := commit.CreateCommit(args)
 	if err != nil {
 		return err
 	}
 
-	tempHeadPath := filepath.Join(".git-go", "refs", "heads", "main.temp")
-	tempHead, err := os.Create(tempHeadPath)
+	err = commit.WriteCommit(newCommit)
 	if err != nil {
 		return err
 	}
-	defer tempHead.Close()
-
-	if _, err := tempHead.Write([]byte(commitHashString)); err != nil {
-		return err
-	}
-	if err = os.Rename(tempHeadPath, filepath.Join(".git-go", "refs", "heads", "main")); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -221,7 +204,6 @@ func Status() error {
 				defer wg.Done()
 				fileContent, err := os.ReadFile(path)
 				if err != nil {
-					fmt.Println("err")
 					fmt.Printf("reading %s errored, e: %v", path, err)
 					return
 				}
