@@ -14,5 +14,5 @@ I'm trying to implement git with `golang` to learn go and for fun.
 - [x] Handle file deletions
 - [x] Status
 - [x] Goroutine
-- [ ] Revert
+- [x] Revert
 - [ ] Maybe diff

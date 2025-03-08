@@ -28,7 +28,6 @@ func main() {
 			if err := commands.Add(os.Args[2:]); err != nil {
 				fmt.Println(fmt.Errorf("%w", err))
 			}
-
 		} else {
 			fmt.Println("No repo initialized in this directory")
 		}
@@ -47,6 +46,8 @@ func main() {
 		} else {
 			fmt.Println("No repo initialized in this directory")
 		}
+	case "revert":
+		commands.Revert()
 	default:
 		fmt.Println("Unknown command")
 	}

@@ -63,12 +63,6 @@ func CreateCommit(args []string) (Commit, error) {
 		}
 		newCommit.Parent = string(head)
 	}
-	commitContent, err := newCommit.ToBytes()
-	if err != nil {
-		return newCommit, err
-	}
-	commitHash := sha1.Sum(commitContent)
-	newCommit.Hash = hex.EncodeToString(commitHash[:])
 	return newCommit, nil
 }
 
@@ -78,6 +72,12 @@ func WriteCommit(commit Commit) error {
 	if err != nil {
 		return err
 	}
+
+	if commit.Hash == "" {
+		hash := sha1.Sum(commitBytes)
+		commit.Hash = hex.EncodeToString(hash[:])
+	}
+
 	err = object.WriteObject(commitBytes, commit.Hash)
 	if err != nil {
 		return err
@@ -99,11 +99,15 @@ func WriteCommit(commit Commit) error {
 	return nil
 }
 
-func ParseCommit(commitHash string) (Commit, error) {
+// Reads the commit object of the given hash and returns the Commit struct if there are no errors
+func ParseCommit(commitHash string) (*Commit, error) {
 	var commit Commit
 	commitObject, err := object.ReadObject(commitHash)
 	if err != nil {
-		return commit, err
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
 	}
 
 	commitParts := bytes.Split(commitObject, []byte("\n"))
@@ -114,7 +118,7 @@ func ParseCommit(commitHash string) (Commit, error) {
 	metadata := bytes.Split(commitParts[3], spaceByte)
 	timestamp, err := strconv.ParseInt(string(metadata[2]), 10, 64)
 	if err != nil {
-		return commit, err
+		return nil, err
 	}
 
 	commit.Author = string(metadata[1])
@@ -124,11 +128,11 @@ func ParseCommit(commitHash string) (Commit, error) {
 	commit.Parent = string(parent)
 	commit.Hash = commitHash
 
-	return commit, nil
+	return &commit, nil
 }
 
 func GetLatest() (*Commit, error) {
-	var result Commit
+	var result *Commit
 
 	head, err := os.ReadFile(filepath.Join(".git-go", "refs", "heads", "main"))
 	if err != nil {
@@ -142,5 +146,5 @@ func GetLatest() (*Commit, error) {
 		return nil, err
 	}
 
-	return &result, nil
+	return result, nil
 }

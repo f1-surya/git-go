@@ -16,6 +16,7 @@ import (
 
 	"github.com/f1-surya/git-go/commit"
 	"github.com/f1-surya/git-go/index"
+	"github.com/f1-surya/git-go/object"
 	"github.com/f1-surya/git-go/tree"
 )
 
@@ -130,7 +131,7 @@ func Commit(args []string) error {
 
 func Log() error {
 	head := ""
-	var commits []commit.Commit
+	var commits []*commit.Commit
 	if headBytes, err := os.ReadFile(filepath.Join(".git-go", "refs", "heads", "main")); err != nil {
 		return err
 	} else {
@@ -147,7 +148,7 @@ func Log() error {
 		if err != nil {
 			return err
 		}
-		commits = append([]commit.Commit{currCommit}, commits...)
+		commits = append([]*commit.Commit{currCommit}, commits...)
 		head = currCommit.Parent
 	}
 
@@ -276,4 +277,103 @@ func Status() error {
 	}
 
 	return nil
+}
+
+func Revert() {
+	latestCommit, err := commit.GetLatest()
+	if err != nil {
+		fmt.Printf("An error occured while reading the last commit: %v", err)
+		return
+	}
+	if latestCommit == nil {
+		fmt.Println("Nothing to revert")
+		return
+	}
+	latestRoot, err := tree.GetTreesRecursive(latestCommit.Tree)
+	if err != nil {
+		fmt.Printf("An error occured while parsing the tree for %s. E: %v", latestCommit.Hash, err)
+		return
+	}
+	lcFiles := tree.GetAllFiles(latestRoot)
+
+	prevCommit, err := commit.ParseCommit(latestCommit.Parent)
+	if err != nil {
+		fmt.Printf("An error occured while reading the previous commit: %v", err)
+		return
+	}
+
+	if prevCommit == nil {
+		err = filepath.Walk(".", func(path string, info fs.FileInfo, err error) error {
+			_, inLatest := lcFiles[path]
+			if inLatest {
+				os.Remove(path)
+			}
+			return err
+		})
+		if err != nil {
+			fmt.Printf("Deleting files errored: %v", err)
+		}
+		return
+	}
+	prevTrees, err := tree.GetTreesRecursive(prevCommit.Tree)
+	if err != nil {
+		fmt.Printf("An error occured while parsing the tree for %s. E: %v", prevCommit.Hash, err)
+		return
+	}
+	prevFiles := tree.GetAllFiles(prevTrees)
+
+	allFiles := make(map[string]string)
+	maps.Copy(allFiles, lcFiles)
+	maps.Copy(allFiles, prevFiles)
+
+	var wg sync.WaitGroup
+	errs := make(chan error)
+	for path := range allFiles {
+		_, inLc := lcFiles[path]
+		prevHash, inPrev := prevFiles[path]
+		if inLc && !inPrev {
+			wg.Add(1)
+			go func() {
+				delError := os.Remove(path)
+				if delError != nil {
+					errs <- delError
+				}
+				wg.Done()
+			}()
+		} else if inPrev {
+			wg.Add(1)
+			go func() {
+				fileObject, err := object.ReadObject(prevHash)
+				if err != nil {
+					errs <- err
+					return
+				}
+				writeErr := os.WriteFile(path, fileObject, 0644)
+				if writeErr != nil {
+					errs <- writeErr
+				}
+				wg.Done()
+			}()
+		}
+	}
+
+	go func() {
+		wg.Wait()
+		close(errs)
+	}()
+
+	for err = range errs {
+		fmt.Println(err)
+	}
+
+	newCommit := commit.Commit{
+		Tree:    prevCommit.Tree,
+		Message: "Revert \"" + latestCommit.Message + "\"",
+		Parent:  latestCommit.Hash,
+	}
+
+	err = commit.WriteCommit(newCommit)
+	if err != nil {
+		fmt.Printf("An error occured while writing the new commit: %v", err)
+	}
 }

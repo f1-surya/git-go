@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/f1-surya/git-go/commands"
+	"github.com/f1-surya/git-go/commit"
 	"github.com/f1-surya/git-go/index"
 )
 
@@ -168,5 +169,75 @@ func TestStatus(t *testing.T) {
 	err = commands.Status()
 	if err != nil {
 		t.Fatalf("status errored: %v", err)
+	}
+}
+
+func TestRevert(t *testing.T) {
+	t.Cleanup(func() {
+		os.RemoveAll(".git-go")
+		os.RemoveAll("test")
+	})
+
+	os.Chdir("..")
+	os.Mkdir("test", 0755)
+
+	// Init
+	commands.Init()
+
+	// Create new files in test and commit them.
+	err := os.WriteFile("test/hi.txt", []byte("hi"), 0644)
+	if err != nil {
+		t.Fatalf("file creation errored: %v", err)
+	}
+	err = commands.Add([]string{"test/hi.txt"})
+	if err != nil {
+		t.Fatalf("add errored: %v", err)
+	}
+	err = commands.Commit([]string{"-m", "Init"})
+	if err != nil {
+		t.Fatalf("commit errored: %v", err)
+	}
+
+	// Create another file in test, add some content to the previous file and commit them.
+	err = os.WriteFile("test/hello.txt", []byte("hello"), 0644)
+	if err != nil {
+		t.Fatalf("hello creation errored: %v", err)
+	}
+	err = os.WriteFile("test/hi.txt", []byte("hello"), 0644)
+	if err != nil {
+		t.Fatalf("hi modification errored: %v", err)
+	}
+	err = commands.Add([]string{"test/hello.txt", "test/hi.txt"})
+	if err != nil {
+		t.Fatalf("add hello errored: %v", err)
+	}
+	err = commands.Commit([]string{"-m", "hello"})
+	if err != nil {
+		t.Fatalf("commit hello errored: %v", err)
+	}
+
+	// Call revert and check if the file that was added later exists or not.
+	commands.Revert()
+	// Read the content of the first file and make sure it matches the content before the second commit.
+	hiContent, err := os.ReadFile(filepath.Join("test", "hi.txt"))
+	if err != nil {
+		t.Fatalf("error while reading hi.txt: %v", err)
+	}
+	if string(hiContent) == "hello" {
+		t.Fatalf("Wrong content in hi.txt: %s", string(hiContent))
+	}
+
+	_, err = os.ReadFile("test/hello.txt")
+	if err == nil {
+		t.Fatal("hello.txt exists")
+	}
+
+	lcCommit, err := commit.GetLatest()
+	if err != nil {
+		t.Fatalf("GetLatest errored: %v", err)
+	}
+
+	if lcCommit.Message != "Revert \"hello\"" {
+		t.Fatalf("wrong commit message: %s", lcCommit.Message)
 	}
 }
